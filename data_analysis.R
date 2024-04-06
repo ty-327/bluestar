@@ -1,10 +1,135 @@
 library(tidyr)
 library(janitor)
 library(dplyr)
+library(tidyverse)
+library(tidymodels)
 
 shipments_raw <- read.csv('shipments.csv')
 carriers_raw <- read.csv('carriers.csv')
 
 shipments <- shipments_raw %>% clean_names()
 carriers <- carriers_raw %>% clean_names()
+
+# check for NA values
+shipments %>%
+  summarise(across(everything(), ~any(is.na(.))))
+
+# remove characters from freight_paid and convert to numeric 
+shipments <- shipments %>% 
+  mutate(freight_paid = sub("\\$", "", freight_paid)) %>% 
+  mutate(freight_paid = sub(",", "", freight_paid)) %>% 
+  mutate(freight_paid = as.numeric(freight_paid)) %>% 
+  mutate(on_time = as.factor(on_time),
+         delivered_complete = as.factor(delivered_complete),
+         damage_free = as.factor(damage_free),
+         billed_accurately = as.factor(billed_accurately))
+
+
+
+
+
+# --------------=QUSTION 3=---------------
+# top origin/destination pairs by row count
+top_pairs_by_count <- shipments %>% 
+  group_by(origin_city, dest_city) %>% 
+  summarize(count = n()) %>% 
+  arrange(desc(count))
+
+# top origin/destination pairs by freight_paid
+top_pairs_by_freight_paid <- shipments %>%
+  group_by(origin_city, dest_city) %>%
+  summarize(total_freight_paid = sum(freight_paid, na.rm = TRUE)) %>% 
+  arrange(desc(total_freight_paid))
+
+# top origin/destination pairs by volume
+top_pairs_by_volume <- shipments %>%
+  group_by(origin_city, dest_city) %>%
+  summarize(volume = sum(volume, na.rm = TRUE)) %>% 
+  arrange(desc(volume))
+
+# OBSERVATION: TOP 3 ORIGIN-DESTINATION PAIRS ARE: (ALL TOP 3 IN ROW COUNT, TOTAL VOLUME, AND TOP 4 IN TOTAL FREIGHT PAID)
+# PAINESVILLE-HAMILTON
+# FT WAYNE-FLOWERY BRANCH
+# ATLANTA-CHARLOTTE
+
+# THESE ARE IN APPROXIMATE ORDER^
+
+
+
+# --------------=QUSTION 4=---------------
+# number of carriers serving each of the top 10 pairs by row count
+shipments %>%
+  right_join(top_pairs_by_count, by = c("origin_city", "dest_city")) %>%
+  group_by(origin_city, dest_city) %>%
+  summarize(unique_carriers = n_distinct(scac)) %>% 
+  filter(origin_city == 'ATLANTA' & dest_city == 'CHARLOTTE' |
+           origin_city == 'PAINESVILLE' & dest_city == 'HAMILTON' |
+           origin_city == 'FT WAYNE' & dest_city == 'FLOWERY BRANCH' |
+           origin_city == 'PAINESVILLE' & dest_city == 'MILTON' |
+           origin_city == 'CHICOPEE' & dest_city == 'MILFORD' |
+           origin_city == 'RIVERSIDE' & dest_city == 'OMAHA' |
+           origin_city == 'ATLANTA' & dest_city == 'CRANBURY' |
+           origin_city == 'GREENSBORO' & dest_city == 'CHARLOTTE' |
+           origin_city == 'CRANBURY' & dest_city == 'HAGERSTOWN' |
+           origin_city == 'ATLANTA' & dest_city == 'FORT WAYNE')
+
+# num total carriers serving top 3 pairs by row count
+shipments %>%
+  right_join(top_pairs_by_count, by = c("origin_city", "dest_city")) %>%
+  filter(origin_city == 'ATLANTA' & dest_city == 'CHARLOTTE' |
+           origin_city == 'PAINESVILLE' & dest_city == 'HAMILTON' |
+           origin_city == 'FT WAYNE' & dest_city == 'FLOWERY BRANCH') %>% 
+           # origin_city == 'PAINESVILLE' & dest_city == 'MILTON' |
+           # origin_city == 'CHICOPEE' & dest_city == 'MILFORD' |
+           # origin_city == 'RIVERSIDE' & dest_city == 'OMAHA' |
+           # origin_city == 'ATLANTA' & dest_city == 'CRANBURY' |
+           # origin_city == 'GREENSBORO' & dest_city == 'CHARLOTTE' |
+           # origin_city == 'CRANBURY' & dest_city == 'HAGERSTOWN' |
+           # origin_city == 'ATLANTA' & dest_city == 'FORT WAYNE') %>% 
+  summarize(unique_carriers = n_distinct(scac))
+
+# num total carriers serving top 3 pairs by volume
+shipments %>%
+  right_join(top_pairs_by_volume, by = c("origin_city", "dest_city")) %>%
+  filter(origin_city == 'PAINESVILLE' & dest_city == 'HAMILTON' |
+           origin_city == 'FT WAYNE' & dest_city == 'FLOWERY BRANCH' |
+           origin_city == 'ATLANTA' & dest_city == 'CHARLOTTE') %>% 
+  summarize(unique_carriers = n_distinct(scac))
+
+# num total carriers serving top 10 pairs by volume
+shipments %>%
+right_join(top_pairs_by_volume, by = c("origin_city", "dest_city")) %>%
+  filter(origin_city == 'PAINESVILLE' & dest_city == 'HAMILTON' |
+           origin_city == 'FT WAYNE' & dest_city == 'FLOWERY BRANCH' |
+           origin_city == 'ATLANTA' & dest_city == 'CHARLOTTE') %>% 
+  summarize(unique_carriers = n_distinct(scac))
+
+# OBSERVATION:: ATLANTA-CRANBURY IS 5TH IN TOTAL VOLUME, 7TH IN ROW COUNT, AND 1ST**** IN TOTAL FREIGHT PAID
+# OBERVATION:: 48 UNIQUE CARRIERS ACCOUNT FOR THE TOP 3 PAIRS
+
+
+
+
+# --------------=OTHER ANALYSIS=---------------
+# maybe look at freight_paid by carrier
+# miles by carrier
+# volume by carrier
+# weight by carrier
+
+
+
+# --------------=ML ANALYSIS=---------------
+shipments_ml <- shipments %>% select(weight, volume, miles, on_time, delivered_complete, damage_free, billed_accurately, freight_paid, scac)
+
+shipments_split <- shipments_ml %>% initial_split(strata = freight_paid)
+shipments_training <- shipments_split %>% training()
+shipments_testing <- shipments_split %>% testing()
+
+shipments_rec <- recipe(freight_paid ~ ., data = shipments_training) %>% 
+  
+
+
+
+
+
 
