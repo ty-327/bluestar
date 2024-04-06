@@ -138,7 +138,7 @@ weight_by_carrier <- shipments %>%
 # OBSERVATION:: CRSE DOES A LOT OF MILES AND HOLDS A LOT OF VOLUME FOR RELATIVELY CHEAP
 
 # Could also look at freight_paid per mile/volume unit/weight unit by carrier
-
+# Could also ask chatGPT what it thinks on where we can look to know how we can improve (give it context and columns)
 
 
 # --------------=ML ANALYSIS=---------------
@@ -148,7 +148,7 @@ shipments_split <- shipments_ml %>% initial_split(strata = freight_paid)
 shipments_training <- shipments_split %>% training()
 shipments_testing <- shipments_split %>% testing()
 
-shipments_rec <- recipe(freight_paid ~ ., data = shipments_training) %>% 
+shipments_rec <- recipe(freight_paid ~ ., data = shipments_training)
   
 
 
