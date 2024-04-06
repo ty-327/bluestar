@@ -47,7 +47,7 @@ top_pairs_by_volume <- shipments %>%
   summarize(volume = sum(volume, na.rm = TRUE)) %>% 
   arrange(desc(volume))
 
-# OBSERVATION: TOP 3 ORIGIN-DESTINATION PAIRS ARE: (ALL TOP 3 IN ROW COUNT, TOTAL VOLUME, AND TOP 4 IN TOTAL FREIGHT PAID)
+# OBSERVATION:: TOP 3 ORIGIN-DESTINATION PAIRS ARE: (ALL TOP 3 IN ROW COUNT, TOTAL VOLUME, AND TOP 4 IN TOTAL FREIGHT PAID)
 # PAINESVILLE-HAMILTON
 # FT WAYNE-FLOWERY BRANCH
 # ATLANTA-CHARLOTTE
@@ -104,18 +104,41 @@ right_join(top_pairs_by_volume, by = c("origin_city", "dest_city")) %>%
            origin_city == 'ATLANTA' & dest_city == 'CHARLOTTE') %>% 
   summarize(unique_carriers = n_distinct(scac))
 
-# OBSERVATION:: ATLANTA-CRANBURY IS 5TH IN TOTAL VOLUME, 7TH IN ROW COUNT, AND 1ST**** IN TOTAL FREIGHT PAID
+# OBSERVATION:: ATLANTA-CRANBURY IS 5TH IN TOTAL VOLUME, 7TH IN ROW COUNT, AND 1ST**** IN TOTAL FREIGHT PAID ---> look into this/fix this?
 # OBERVATION:: 48 UNIQUE CARRIERS ACCOUNT FOR THE TOP 3 PAIRS
 
 
 
 
 # --------------=OTHER ANALYSIS=---------------
-# maybe look at freight_paid by carrier
-# miles by carrier
-# volume by carrier
-# weight by carrier
+# freight_paid by carrier
+freight_paid_by_carrier <- shipments %>%
+  group_by(scac) %>%
+  summarize(freight_paid = sum(freight_paid, na.rm = TRUE)) %>% 
+  arrange(desc(freight_paid))
 
+# miles by carrier
+miles_by_carrier <- shipments %>%
+  group_by(scac) %>%
+  summarize(miles = sum(miles, na.rm = TRUE)) %>% 
+  arrange(desc(miles))
+
+# volume by carrier
+volume_by_carrier <- shipments %>%
+  group_by(scac) %>%
+  summarize(volume = sum(volume, na.rm = TRUE)) %>% 
+  arrange(desc(volume))
+
+# weight by carrier
+weight_by_carrier <- shipments %>%
+  group_by(scac) %>%
+  summarize(weight = sum(weight, na.rm = TRUE)) %>% 
+  arrange(desc(weight))
+
+# OBSERVATION:: CRSE DOES A LOT OF MILES AND HOLDS A LOT OF VOLUME FOR RELATIVELY CHEAP
+
+# Could also look at freight_paid per mile/volume unit/weight unit by carrier
+# Could also ask chatGPT what it thinks on where we can look to know how we can improve (give it context and columns)
 
 
 # --------------=ML ANALYSIS=---------------
@@ -125,7 +148,7 @@ shipments_split <- shipments_ml %>% initial_split(strata = freight_paid)
 shipments_training <- shipments_split %>% training()
 shipments_testing <- shipments_split %>% testing()
 
-shipments_rec <- recipe(freight_paid ~ ., data = shipments_training) %>% 
+shipments_rec <- recipe(freight_paid ~ ., data = shipments_training)
   
 
 
