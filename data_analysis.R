@@ -3,29 +3,30 @@ library(janitor)
 library(dplyr)
 library(tidyverse)
 library(tidymodels)
+library(lubridate)
 
-shipments_raw <- read.csv('shipments.csv')
-carriers_raw <- read.csv('carriers.csv')
+setwd('bluestar')
 
-shipments <- shipments_raw %>% clean_names()
-carriers <- carriers_raw %>% clean_names()
+shipments_raw <- read.csv('shipments.csv') %>% as_tibble()
+carriers_raw <- read.csv('carriers.csv') %>% as_tibble()
+
+# remove characters from freight_paid and convert to numeric 
+shipments <- shipments_raw %>% 
+  clean_names() %>% 
+  mutate(
+    freight_paid = sub("\\$", "", freight_paid),
+    freight_paid = sub(",", "", freight_paid),
+    freight_paid = as.numeric(freight_paid),
+    origin_zip = as.character(origin_zip),
+    origin_zip = if_else(nchar(origin_zip) == 4, str_pad(origin_zip, width = 5, side = "left", pad = "0"), origin_zip),
+    ship_date = mdy(ship_date)
+  )
 
 # check for NA values
 shipments %>%
   summarise(across(everything(), ~any(is.na(.))))
 
-# remove characters from freight_paid and convert to numeric 
-shipments <- shipments %>% 
-  mutate(freight_paid = sub("\\$", "", freight_paid)) %>% 
-  mutate(freight_paid = sub(",", "", freight_paid)) %>% 
-  mutate(freight_paid = as.numeric(freight_paid)) %>% 
-  mutate(on_time = as.factor(on_time),
-         delivered_complete = as.factor(delivered_complete),
-         damage_free = as.factor(damage_free),
-         billed_accurately = as.factor(billed_accurately))
-
-
-
+shipments %>% glimpse
 
 
 # --------------=QUSTION 3=---------------
@@ -142,7 +143,18 @@ weight_by_carrier <- shipments %>%
 
 
 # --------------=ML ANALYSIS=---------------
-shipments_ml <- shipments %>% select(weight, volume, miles, on_time, delivered_complete, damage_free, billed_accurately, freight_paid, scac)
+shipments_ml <- shipments %>% 
+  mutate(across(c(
+    origin_zip, 
+    dest_zip,
+    scac,
+    origin_city,
+    origin_state,
+    dest_city,
+    dest_state,
+    dest_zip
+    ), ~as.factor(.))) %>% 
+  select(weight, volume, miles, on_time, delivered_complete, damage_free, billed_accurately, freight_paid, scac)
 
 shipments_split <- shipments_ml %>% initial_split(strata = freight_paid)
 shipments_training <- shipments_split %>% training()
