@@ -4,6 +4,7 @@ library(dplyr)
 library(tidyverse)
 library(tidymodels)
 library(lubridate)
+library(ggplot2)
 
 setwd('bluestar')
 
@@ -22,6 +23,10 @@ shipments <- shipments_raw %>%
     ship_date = mdy(ship_date)
   )
 
+carriers <- carriers_raw %>% 
+  clean_names()
+  
+
 # check for NA values
 shipments %>%
   summarise(across(everything(), ~any(is.na(.))))
@@ -29,7 +34,7 @@ shipments %>%
 shipments %>% glimpse
 
 
-# --------------=QUSTION 3=---------------
+# --------------=QUESTION 3=---------------
 # top origin/destination pairs by row count
 top_pairs_by_count <- shipments %>% 
   group_by(origin_city, dest_city) %>% 
@@ -57,7 +62,7 @@ top_pairs_by_volume <- shipments %>%
 
 
 
-# --------------=QUSTION 4=---------------
+# --------------=QUESTION 4=---------------
 # number of carriers serving each of the top 10 pairs by row count
 shipments %>%
   right_join(top_pairs_by_count, by = c("origin_city", "dest_city")) %>%
@@ -107,6 +112,57 @@ right_join(top_pairs_by_volume, by = c("origin_city", "dest_city")) %>%
 
 # OBSERVATION:: ATLANTA-CRANBURY IS 5TH IN TOTAL VOLUME, 7TH IN ROW COUNT, AND 1ST**** IN TOTAL FREIGHT PAID ---> look into this/fix this?
 # OBERVATION:: 48 UNIQUE CARRIERS ACCOUNT FOR THE TOP 3 PAIRS
+
+
+# --------------=QUESTION 5=---------------
+# gonna add the carrier data to this table
+combined <- shipments %>% left_join(carriers, by = "scac")
+combined %>% 
+  group_by(carrier_type) %>% 
+  summarize(
+    avg_shipment_volume = mean(volume),
+    avg_shipment_weight = mean(weight),
+    avg_length = mean(miles)
+    )
+
+
+# --------------=QUESTION 6=---------------
+top_carriers <- shipments %>%
+  count(scac) %>%
+  arrange(desc(n)) %>% 
+  slice(1:10) %>% 
+  pull(scac)
+
+# --------------=QUESTION 7=---------------
+combined %>% 
+  ggplot(aes(x = miles, y = freight_paid / miles)) + 
+  geom_line()
+
+
+
+combined <- combined %>% 
+  mutate(top_carrier_name = if_else(scac %in% top_carriers, scac, 'Other'))
+
+
+combined %>% distinct(top_carrier_name)
+combined %>% 
+  ggplot(aes(x = miles, y = freight_paid / weight)) + 
+  geom_point() +
+  facet_wrap(~carrier_type, ncol = 1) +
+  #facet_grid(top_carrier_name ~ carrier_type, scales= 'free') +
+  theme_bw() + 
+  labs(
+    title = 'Price per lb per mile',
+    y = 'Price per pound',
+    x = 'Miles'
+  )
+
+combined %>% 
+  mutate(stat = ) %>% 
+  group_by(scac) %>% 
+  summarize(
+    most_expensive = max(mean(price_per_lb_per_mile))
+  )
 
 
 
