@@ -6,7 +6,7 @@ library(tidymodels)
 library(lubridate)
 library(ggplot2)
 
-setwd('bluestar')
+# setwd('bluestar')
 
 shipments_raw <- read.csv('shipments.csv') %>% as_tibble()
 carriers_raw <- read.csv('carriers.csv') %>% as_tibble()
@@ -32,6 +32,20 @@ shipments %>%
   summarise(across(everything(), ~any(is.na(.))))
 
 shipments %>% glimpse
+
+# check milage
+shipments %>% arrange(desc(miles)) %>% view()
+shipments %>% filter(origin_city == 'GREENFIELD' & dest_city == 'RIVERSIDE') %>% arrange(desc(miles))
+shipments %>% filter(miles < 7000) %>% 
+  group_by(origin_city, dest_city) %>% 
+  summarize(avg_miles = mean(miles)) %>% 
+  filter(origin_city == 'GREENFIELD' & dest_city == 'RIVERSIDE')
+
+# fix issues with four rows of high milage
+shipments <- shipments %>% 
+  mutate(miles = if_else(origin_city == 'GREENFIELD' & 
+                           dest_city == 'RIVERSIDE' & 
+                           miles > 7000, 608, miles))
 
 
 # --------------=QUESTION 3=---------------
@@ -152,17 +166,17 @@ combined %>%
   #facet_grid(top_carrier_name ~ carrier_type, scales= 'free') +
   theme_bw() + 
   labs(
-    title = 'Price per lb per mile',
+    title = 'Price per lb per mile by carrier type',
     y = 'Price per pound',
     x = 'Miles'
   )
 
-combined %>% 
-  mutate(stat = ) %>% 
-  group_by(scac) %>% 
-  summarize(
-    most_expensive = max(mean(price_per_lb_per_mile))
-  )
+# combined %>% 
+#   mutate(stat = ) %>% 
+#   group_by(scac) %>% 
+#   summarize(
+#     most_expensive = max(mean(price_per_lb_per_mile))
+#   )
 
 
 
@@ -192,6 +206,27 @@ weight_by_carrier <- shipments %>%
   summarize(weight = sum(weight, na.rm = TRUE)) %>% 
   arrange(desc(weight))
 
+# average price/volume unit by carrier
+avg_price_per_volume_by_carrier <- shipments %>%
+  mutate(price_per_volume_unit = freight_paid / volume) %>% 
+  group_by(scac) %>%
+  summarize(avg_price_per_volume = mean(price_per_volume_unit, na.rm = TRUE)) %>% 
+  arrange(desc(avg_price_per_volume))
+
+#
+combined %>% 
+  filter(scac %in% top_carriers) %>% 
+  ggplot(aes(x = miles, y = freight_paid / volume)) + 
+  geom_point() +
+  facet_wrap(~scac, ncol = 1) +
+  #facet_grid(top_carrier_name ~ carrier_type, scales= 'free') +
+  theme_bw() + 
+  labs(
+    title = 'Price per volume unit per mile by carrier type',
+    y = 'Price per volume unit',
+    x = 'Miles'
+  )
+
 # OBSERVATION:: CRSE DOES A LOT OF MILES AND HOLDS A LOT OF VOLUME FOR RELATIVELY CHEAP
 
 # Could also look at freight_paid per mile/volume unit/weight unit by carrier
@@ -216,7 +251,25 @@ shipments_split <- shipments_ml %>% initial_split(strata = freight_paid)
 shipments_training <- shipments_split %>% training()
 shipments_testing <- shipments_split %>% testing()
 
-shipments_rec <- recipe(freight_paid ~ ., data = shipments_training)
+# Adding a step to normalize independent variables
+shipments_rec <- recipe(freight_paid ~ ., data = shipments_training) %>%
+  step_normalize(all_numeric(), -all_outcomes())
+
+# Preparing the model specification for linear regression
+lin_reg_spec <- linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode("regression")
+
+# Bundling the recipe and model spec
+shipments_workflow <- workflow() %>%
+  add_recipe(shipments_rec) %>%
+  add_model(lin_reg_spec)
+
+# Fitting the model
+shipments_fit <- fit(shipments_workflow, data = shipments_training)
+
+# Summarizing the model fit
+summary(shipments_fit)
   
 
 
